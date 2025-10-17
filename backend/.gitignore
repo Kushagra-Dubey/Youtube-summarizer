@@ -1,0 +1,43 @@
+# Python-specific ignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+dist/
+build/
+*.egg-info/
+.ipynb_checkpoints/
+
+# IDE-specific ignores (e.g., VS Code, PyCharm)
+.vscode/
+.idea/
+
+# Operating System specific ignores
+.DS_Store
+Thumbs.db
+
+# FastAPI-specific or common web development ignores
+# Logs and temporary files
+*.log
+tmp/
+
+# Environment variables (if not managed by other means)
+.env
+.flaskenv
+
+# Database files (e.g., SQLite)
+*.sqlite3
+*.db
+
+# Docker-related ignores (if applicable)
+.dockerignore
