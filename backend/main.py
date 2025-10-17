@@ -1,7 +1,12 @@
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import (
+    YouTubeTranscriptApi,
+    NoTranscriptFound,
+)
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -91,18 +96,31 @@ def extract_video_id(url: str) -> str:
     raise ValueError("Invalid YouTube URL")
 
 # Helper function to get transcript
+from fastapi import HTTPException
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
+
 def get_transcript(video_id: str) -> str:
     """Fetch transcript from YouTube video"""
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript_text = " ".join([item["text"] for item in transcript_list])
-        return transcript_text
+        
+        yt = YouTubeTranscriptApi()
+        transcript_list = yt.fetch(video_id=video_id)  # Use the working fetch() method
+
+        if not transcript_list:
+            raise NoTranscriptFound(f"No transcript data for video: {video_id}")
+        
+        # Join all transcript items into a single string
+        transcript_text = " ".join([snippet.text for snippet in transcript_list])
+        return transcript_text.strip()
+    
     except Exception as e:
+        print(f"Unexpected transcript error: {e}")
         raise HTTPException(
-            status_code=400,
+            status_code=500, 
             detail=f"Could not fetch transcript: {str(e)}"
         )
 
+ 
 # Helper function to validate and get model
 def validate_model(model: str) -> str:
     """Validate and return model name"""
@@ -247,10 +265,10 @@ async def summarize_from_url(request: SummarizeRequest):
 # Error handling
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    return {
-        "error": exc.detail,
-        "status_code": exc.status_code
-    }
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail, "status_code": exc.status_code},
+    )
 
 if __name__ == "__main__":
     import uvicorn
