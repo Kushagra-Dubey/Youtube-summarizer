@@ -69,7 +69,6 @@ def generate_summary(transcript: str, model: str) -> tuple[str, str]:
             status_code=500,
             detail="ANTHROPIC_API_KEY is not set in environment variables."
         )
-        
     try:
         print(f"Creating summarizer for model: {model}")
         chain, validated_model = _create_summarizer(model)

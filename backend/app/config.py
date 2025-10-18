@@ -49,8 +49,29 @@ Transcript:
 Summary:""")
 ])
 
-# --- CORS Origins ---
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./youtube_summarizer.db")
+
+# --- JWT Configuration ---
+SECRET_KEY = os.getenv("SECRET_KEY", None)
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# --- Google OAuth ---
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback")
+
+# --- Facebook OAuth ---
+FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID")
+FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
+FACEBOOK_REDIRECT_URI = os.getenv("FACEBOOK_REDIRECT_URI", "http://localhost:8000/api/auth/facebook/callback")
+
+# --- CORS ---
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
 ]
+
+# --- API Keys ---
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
