@@ -1,87 +1,100 @@
-from fastapi import HTTPException
-from youtube_transcript_api import (
-    YouTubeTranscriptApi, 
-    TranscriptsDisabled, 
-    NoTranscriptFound, 
-    VideoUnavailable
-)
+import json
+from typing import List, Tuple
+from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_anthropic import ChatAnthropic
 from langchain_core.output_parsers import StrOutputParser
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+from app.config import ANTHROPIC_API_KEY, AVAILABLE_MODELS, SUMMARY_PROMPT
+from app.models import SummarizationJob, VideoChunk, JobStatus
 
-# Import config variables
-from app.config import (
-    ANTHROPIC_API_KEY, 
-    AVAILABLE_MODELS, 
-    SUMMARY_PROMPT, 
-    DEFAULT_MODEL
-)
 
 def get_transcript(video_id: str) -> str:
     """Fetch transcript from YouTube video"""
     try:
         yt = YouTubeTranscriptApi()
         transcript_list = yt.fetch(video_id=video_id)
-
         if not transcript_list:
-            raise NoTranscriptFound(f"No transcript data for video: {video_id}")
-        
+            raise Exception(f"No transcript for {video_id}")
         transcript_text = " ".join([snippet.text for snippet in transcript_list])
         return transcript_text.strip()
-    
-    except (NoTranscriptFound, TranscriptsDisabled, VideoUnavailable) as e:
-        print(f"Transcript error: {e}")
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Could not fetch transcript: {str(e)}"
-        )
     except Exception as e:
-        print(f"Unexpected transcript error: {e}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Could not fetch transcript: {str(e)}"
-        )
+        raise HTTPException(status_code=404, detail=f"Transcript error: {str(e)}")
 
-def _validate_model(model: str) -> str:
-    """Validate and return model name"""
-    if model not in AVAILABLE_MODELS:
-        print(f"Invalid model {model}, defaulting to {DEFAULT_MODEL}")
-        return DEFAULT_MODEL
-    return model
+def chunk_transcript(transcript: str, chunk_size: int = 2000, overlap: int = 200) -> List[str]:
+    """Split transcript into overlapping chunks for RAG"""
+    chunks = []
+    tokens = transcript.split()
+    
+    for i in range(0, len(tokens), chunk_size - overlap):
+        chunk = " ".join(tokens[i:i + chunk_size])
+        if chunk.strip():
+            chunks.append(chunk)
+    
+    return chunks
 
-def _create_summarizer(model: str):
-    """Create LangChain summarizer with specified model"""
-    validated_model = _validate_model(model)
+def get_embeddings_model():
+    """Initialize embeddings model (using free HuggingFace)"""
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+def create_embeddings(text: str) -> str:
+    """Create embedding for text chunk"""
+    embeddings = get_embeddings_model()
+    embedding = embeddings.embed_query(text)
+    return json.dumps(embedding)
+
+def find_relevant_chunks(question: str, chunks_with_embeddings: List[dict], top_k: int = 3) -> str:
+    """Find most relevant chunks using similarity search"""
+    embeddings = get_embeddings_model()
+    question_embedding = embeddings.embed_query(question)
+    
+    similarities = []
+    for chunk in chunks_with_embeddings:
+        chunk_embedding = json.loads(chunk['embedding'])
+        similarity = sum(a*b for a,b in zip(question_embedding, chunk_embedding))
+        similarities.append((chunk['content'], similarity))
+    
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    relevant_text = "\n\n".join([chunk[0] for chunk in similarities[:top_k]])
+    return relevant_text
+
+def generate_summary(transcript: str, model: str) -> str:
+    """Generate summary from transcript using Claude"""
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
     
     chat_model = ChatAnthropic(
-        model=validated_model,
+        model=model,
         temperature=0.7,
-        max_tokens=1024,
+        max_tokens=1500,
         api_key=ANTHROPIC_API_KEY
     )
     
     chain = SUMMARY_PROMPT | chat_model | StrOutputParser()
-    return chain, validated_model
+    summary = chain.invoke({"transcript": transcript})
+    return summary
 
-def generate_summary(transcript: str, model: str) -> tuple[str, str]:
-    """Generate summary using LangChain + Claude"""
+def answer_question(question: str, relevant_chunks: str, model: str) -> str:
+    """Answer question based on relevant chunks"""
     if not ANTHROPIC_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="ANTHROPIC_API_KEY is not set in environment variables."
-        )
-    try:
-        print(f"Creating summarizer for model: {model}")
-        chain, validated_model = _create_summarizer(model)
-        
-        print("Generating summary with LangChain...")
-        summary = chain.invoke({"transcript": transcript})
-        
-        print("Summary generated successfully")
-        return summary, validated_model
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
     
-    except Exception as e:
-        print(f"Error generating summary: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating summary: {str(e)}"
-        )
+    chat_model = ChatAnthropic(
+        model=model,
+        temperature=0.7,
+        max_tokens=500,
+        api_key=ANTHROPIC_API_KEY
+    )
+    
+    prompt = f"""Based on the following video content, answer the question.
+
+Content:
+{relevant_chunks}
+
+Question: {question}
+
+Answer:"""
+    
+    response = chat_model.invoke(prompt)
+    return response.content
