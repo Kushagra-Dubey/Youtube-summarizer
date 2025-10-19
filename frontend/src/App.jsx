@@ -1,10 +1,11 @@
 import React, { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './AuthContext';
-import LoginPage from './LoginPage';
-import { GoogleCallback, FacebookCallback } from './AuthCallback';
-import YouTubeSummarizer from './YouTubeSummarizer';
-import UserProfile from './UserProfile';
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import { GoogleCallback, FacebookCallback } from './pages/AuthCallback';
+import YouTubeSummarizer from './pages/YouTubeSummarizer';
+import UserProfile from './pages/UserProfile';
 import { Loader } from 'lucide-react';
 
 // Protected Route Component
@@ -13,8 +14,8 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <Loader className="w-12 h-12 text-purple-400 animate-spin" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader className="w-12 h-12 text-red-600 animate-spin" />
       </div>
     );
   }
@@ -28,18 +29,27 @@ function ProtectedRoute({ children }) {
 
 // Main App Content
 function AppContent() {
-  const { isAuthenticated } = useContext(AuthContext);
+  const { isAuthenticated, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader className="w-12 h-12 text-red-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <Routes>
       {/* Public Routes */}
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
       <Route path="/auth/facebook/callback" element={<FacebookCallback />} />
 
       {/* Protected Routes */}
       <Route
-        path="/"
+        path="/summarizer"
         element={
           <ProtectedRoute>
             <YouTubeSummarizer />
@@ -56,7 +66,7 @@ function AppContent() {
       />
 
       {/* Redirect unknown routes */}
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
