@@ -15,9 +15,11 @@ class SummarizeRequest(BaseModel):
 
 class JobResponse(BaseModel):
     job_id: str
+    model: str
     status: str
     video_id: str
     created_at: str
+    completed_at: str
     summary: Optional[str] = None
     error_message: Optional[str] = None
 

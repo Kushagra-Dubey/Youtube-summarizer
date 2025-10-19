@@ -135,9 +135,11 @@ async def get_user_jobs(
     return [
         JobResponse(
             job_id=job.id,
+            model=job.model,
             status=job.status.value,
             video_id=job.video_id,
             created_at=job.created_at.isoformat(),
+            completed_at=job.completed_at.isoformat(),
             summary=job.summary
         )
         for job in jobs

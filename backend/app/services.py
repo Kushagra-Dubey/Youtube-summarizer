@@ -3,7 +3,7 @@ from typing import List, Tuple
 from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_anthropic import ChatAnthropic
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.config import ANTHROPIC_API_KEY, AVAILABLE_MODELS, SUMMARY_PROMPT
