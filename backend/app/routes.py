@@ -47,7 +47,9 @@ async def create_summarization_job(
                 status=existing_job.status.value,
                 video_id=existing_job.video_id,
                 created_at=existing_job.created_at.isoformat(),
-                summary=existing_job.summary
+                completed_at=job.completed_at.isoformat(),
+                summary=existing_job.summary,
+                error_message=job.error_message,
             )
         
         # Create new job
@@ -69,7 +71,9 @@ async def create_summarization_job(
             job_id=job.id,
             status=job.status.value,
             video_id=job.video_id,
-            created_at=job.created_at.isoformat()
+            created_at=job.created_at.isoformat(),
+            completed_at=job.completed_at.isoformat(),
+            error_message=job.error_message,
         )
     
     except Exception as e:
@@ -140,7 +144,8 @@ async def get_user_jobs(
             video_id=job.video_id,
             created_at=job.created_at.isoformat(),
             completed_at=job.completed_at.isoformat(),
-            summary=job.summary
+            summary=job.summary,
+            error_message=job.error_message
         )
         for job in jobs
     ]
